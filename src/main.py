@@ -10,6 +10,9 @@ RECEIPT_DIR = os.path.join(os.path.dirname(__file__), '../receipts')
 def process_receipt(image_path):
     print(f"Processing: {image_path}")
     preprocessed = preprocess_image(image_path)
+    if preprocessed is None:
+        print("Preprocessing failed, skipping OCR.")
+        return None
     text = ocr_image(preprocessed)
     print("OCR Text:", text)
     entities = extract_entities(text)

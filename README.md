@@ -38,3 +38,5 @@ pytest
 Most recent receipts have QR codes with an URL to basic information: date and time, spent sum, receipt issuer and transaction location address.
 
 All receipt pictures have a barely or not at all perceivable to the naked eye gradient. That gradient is sometimes hard to cope even in Photoshop to make a clear text mask. Making it fully automated is a challenge of a next level. CLAHE (Contrast Limited AHE (Adaptive Histogram Equalization)) solves this by splitting an image to the grid and applying AHE for each part separatedly. This way darker corner on one side will be treated differently, than another (if there still is enough data, f.e. pixel values are not clipped).
+
+Tesseract needs a correct language, get the language model from [https://github.com/tesseract-ocr/tessdata](https://github.com/tesseract-ocr/tessdata) and in case you installed tesseract with Brew, move is to `/opt/homebrew/Cellar/tesseract/5.5.0_1/share/tessdata`.

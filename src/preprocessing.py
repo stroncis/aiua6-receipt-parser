@@ -8,14 +8,17 @@ PREPROCESS_MODE = 'otsu'  # Options: 'otsu', 'mean', 'gaussian', 'manual'
 MANUAL_THRESHOLD_VALUE = 210  # Used only if PREPROCESS_MODE == 'manual'
 APPLY_EQUALIZE = False
 APPLY_CLAHE = True
-CLAHE_CLIP_LIMIT = 3.0
+CLAHE_CLIP_LIMIT = 4.0
 CLAHE_TILE_GRID_SIZE = (16, 16)
+APPLY_DESKEW = True
+APPLY_PERSPECTIVE_CORRECTION = True
 APPLY_MEDIAN_BLUR = True
 MEDIAN_BLUR_KSIZE = 3
 APPLY_MORPH_OPEN = True
 MORPH_KERNEL_SIZE = 2
 APPLY_DENOISE = True
 FAST_NL_MEANS_PARAMS = dict(h=30, templateWindowSize=7, searchWindowSize=21)
+
 
 def preprocess_image(image_path):
     """
@@ -24,10 +27,26 @@ def preprocess_image(image_path):
     image = cv2.imread(image_path)
     if image is None:
         raise ValueError(f"Image not found or unable to read: {image_path}")
+
+    # --- Deskewing ---
+    if APPLY_DESKEW:
+        print("Applying deskewing")
+        image = deskew_image(image)
+        if image is None:
+            print("Warning: Deskewing failed, image is None.")
+            return None
+
+    # --- Perspective Correction ---
+    if APPLY_PERSPECTIVE_CORRECTION:
+        print("Applying perspective correction")
+        image = perspective_correction(image)
+        if image is None:
+            print("Warning: Perspective correction failed, image is None.")
+            return None
+
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-
     img = gray
+
     if APPLY_CLAHE:
         print(f"Applying CLAHE (clipLimit={CLAHE_CLIP_LIMIT}, tileGridSize={CLAHE_TILE_GRID_SIZE})")
         clahe = cv2.createCLAHE(clipLimit=CLAHE_CLIP_LIMIT, tileGridSize=CLAHE_TILE_GRID_SIZE)
@@ -71,3 +90,94 @@ def preprocess_image(image_path):
     cv2.imwrite(processed_path, img)
 
     return img
+
+
+def deskew_image(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    coords = np.column_stack(np.where(thresh > 0))
+    if coords.size == 0:
+        print("Warning: No nonzero pixels found for deskewing.")
+        return None
+    angle = cv2.minAreaRect(coords)[-1]
+
+    print(f"Initial deskew angle: {angle}")
+    if abs(angle) > 45:
+        print(f"Deskew skipped: detected angle {angle} is too large (likely vertical receipt or misdetection)")
+        return image
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+    print(f"Corrected deskew angle: {angle}")
+
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    if rotated is None:
+        print("Warning: cv2.warpAffine failed during deskewing.")
+    print(f"Deskew angle: {angle:.2f}")
+    return rotated
+
+
+def perspective_correction(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    edged = cv2.Canny(blur, 50, 200)
+
+    contours, _ = cv2.findContours(edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+    pts = None
+    for c in contours:
+        min_area = 0.2 * image.shape[0] * image.shape[1]
+        if cv2.contourArea(c) < min_area:
+            continue
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        if len(approx) == 4:
+            pts = approx.reshape(4, 2)
+            break
+    if pts is None:
+        print("No 4-point contour found for perspective correction, skipping.")
+        return image
+        # return None
+
+    # Order points
+    rect = order_points(pts)
+    (tl, tr, br, bl) = rect
+    widthA = np.linalg.norm(br - bl)
+    widthB = np.linalg.norm(tr - tl)
+    maxWidth = max(int(widthA), int(widthB))
+    heightA = np.linalg.norm(tr - br)
+    heightB = np.linalg.norm(tl - bl)
+    maxHeight = max(int(heightA), int(heightB))
+
+    if maxWidth < 0.5 * image.shape[1] or maxHeight < 0.5 * image.shape[0]:
+        print("Perspective correction skipped: detected contour too small compared to input image.")
+        return image
+
+    dst = np.array([
+        [0, 0],
+        [maxWidth - 1, 0],
+        [maxWidth - 1, maxHeight - 1],
+        [0, maxHeight - 1]
+    ], dtype="float32")
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+    if warped is None:
+        print("Warning: cv2.warpPerspective failed during perspective correction.")
+    print("Perspective correction applied.")
+    return warped
+
+
+def order_points(pts):
+    # Order points: top-left, top-right, bottom-right, bottom-left
+    rect = np.zeros((4, 2), dtype="float32")
+    s = pts.sum(axis=1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+    diff = np.diff(pts, axis=1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+    return rect
