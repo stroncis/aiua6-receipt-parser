@@ -5,6 +5,18 @@ def extract_entities(text):
     Extract entities from OCR text (date, amount, fuel type, etc.).
     """
     entities = {}
+
+    # Fuel price and liters extraction (e.g., 1,560 X 12.820)
+    fuel_amount_match = re.search(r'(\d+[.,]\d+)\s*[xX*]\s*(\d+[.,]\d+)', text)
+    if fuel_amount_match:
+        entities['fuel_price_per_liter'] = fuel_amount_match.group(1)
+        entities['fuel_liters'] = fuel_amount_match.group(2)
+
+    # Address extraction (look for lines with 'g.', 'sav.', 'k.', etc.)
+    address_match = re.search(r'([A-Za-zėūųįšžąč .,-]+g\.|sav\.|k\.[^\n]*)', text)
+    if address_match:
+        entities['address'] = address_match.group(0).strip()
+
     # Date extraction
     date_match = re.search(r'(\d{4}[./-]\d{2}[./-]\d{2})', text)
     if date_match:
