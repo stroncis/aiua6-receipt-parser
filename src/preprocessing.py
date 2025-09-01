@@ -46,13 +46,13 @@ def preprocess_image(image_path):
             print("Warning: Deskewing failed, image is None.")
             return None, qr_url
 
-    # --- Perspective Correction ---
-    if APPLY_PERSPECTIVE_CORRECTION:
-        print("Applying perspective correction")
-        image = perspective_correction(image)
-        if image is None:
-            print("Warning: Perspective correction failed, image is None.")
-            return None
+    # # --- Perspective Correction ---
+    # if APPLY_PERSPECTIVE_CORRECTION:
+    #     print("Applying perspective correction")
+    #     image = perspective_correction(image)
+    #     if image is None:
+    #         print("Warning: Perspective correction failed, image is None.")
+    #         return None, qr_url
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     img = gray
