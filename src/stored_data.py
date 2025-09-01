@@ -1,4 +1,5 @@
 import os
+import re
 import json
 
 ADDRESS_FILE = os.path.join(os.path.dirname(__file__), '../data/addresses.json')
@@ -33,32 +34,45 @@ def save_addresses(addresses):
         json.dump(addresses, f, ensure_ascii=False, indent=2)
 
 
+def extract_address_candidates(text):
+    # Find all substrings that look like addresses
+    return re.findall(r'[\w\s.,"]*g\.\s*\d+\w*', text)
+
+
+def levenshtein(a, b):
+    if len(a) < len(b):
+        return levenshtein(b, a)
+    if len(b) == 0:
+        return len(a)
+    previous_row = range(len(b) + 1)
+    for i, c1 in enumerate(a):
+        current_row = [i + 1]
+        for j, c2 in enumerate(b):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
 def fuzzy_match_address(address, known_addresses, threshold=3):
     # Simple Levenshtein distance (can use rapidfuzz or python-Levenshtein for speed)
-    def levenshtein(a, b):
-        if len(a) < len(b):
-            return levenshtein(b, a)
-        if len(b) == 0:
-            return len(a)
-        previous_row = range(len(b) + 1)
-        for i, c1 in enumerate(a):
-            current_row = [i + 1]
-            for j, c2 in enumerate(b):
-                insertions = previous_row[j + 1] + 1
-                deletions = current_row[j] + 1
-                substitutions = previous_row[j] + (c1 != c2)
-                current_row.append(min(insertions, deletions, substitutions))
-            previous_row = current_row
-        return previous_row[-1]
-    matches = [
-        (entry, levenshtein(address, entry["address"]))
-        for entry in known_addresses if "address" in entry
-    ]
-    matches.sort(key=lambda x: x[1])
-    if matches and matches[0][1] <= threshold:
-        return matches[0][0]
+    # matches = [
+    #     (entry, levenshtein(address, entry["address"]))
+    #     for entry in known_addresses if "address" in entry
+    # ]
+    # matches.sort(key=lambda x: x[1])
+    # if matches and matches[0][1] <= threshold:
+    #     return matches[0][0]
+    # return None
+    candidates = extract_address_candidates(address)
+    for candidate in candidates:
+        for entry in known_addresses:
+            dist = levenshtein(candidate, entry["address"])
+            if dist <= threshold:
+                return entry
     return None
-
 
 def add_address(address, station):
     addresses = load_addresses()
