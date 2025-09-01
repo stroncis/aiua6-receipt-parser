@@ -2,6 +2,8 @@ import os
 from preprocessing import preprocess_image
 from ocr import ocr_image
 from parsing import extract_entities
+from stored_data import save_receipt_data, load_receipt_data, load_addresses, add_address, fuzzy_match_address
+
 
 def multipass_receipt_ocr(image_path, clip_limits=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]):
     qr_url = None
@@ -70,9 +72,37 @@ def proof_and_fill_fields(aggregated, tolerance=0.02):
 def process_receipt(image_path):
     print(f"Processing: {image_path}")
     fname = os.path.basename(image_path)
-    # Use multipass CLAHE for robust OCR
     aggregated, qr_url = multipass_receipt_ocr(image_path)
     aggregated = proof_and_fill_fields(aggregated)
+
+    known_addresses = load_addresses()
+    extracted_address = aggregated.get('address')
+    matched_address_obj = fuzzy_match_address(extracted_address, known_addresses)
+    if matched_address_obj:
+        aggregated['address'] = matched_address_obj['address']
+        aggregated['station'] = matched_address_obj['station']
+        print(f"Matched address: {matched_address_obj['address']} (station: {matched_address_obj['station']})")
+    else:
+        print(f"Address not found in lookup. Please correct/add: {extracted_address}")
+        corrected = input("Enter correct address: ")
+        station = input("Enter station name: ")
+        add_address(corrected, station)
+        aggregated['address'] = corrected
+        aggregated['station'] = station
+
+    receipt_id = fname.split('.')[0]
+    existing = load_receipt_data(receipt_id)
+    if existing:
+        print("Existing record found. Differences:")
+        for k in aggregated:
+            if existing.get(k) != aggregated[k]:
+                print(f"  {k}: old={existing.get(k)}, new={aggregated[k]}")
+        # update = input("Update record? (y/n): ")
+        # if update.lower() == 'y':
+        #     save_receipt_data(receipt_id, aggregated)
+    else:
+        save_receipt_data(receipt_id, aggregated)
+
     print(f"Processed {fname}:")
     for key, value in aggregated.items():
         print(f"    {key}: {value}")
