@@ -27,6 +27,8 @@ def preprocess_image(image_path):
     image = cv2.imread(image_path)
     if image is None:
         raise ValueError(f"Image not found or unable to read: {image_path}")
+    
+    image = tune_brightness_contrast(image)
 
     # --- QR code detection (OpenCV) ---
     qr_url = None
@@ -99,6 +101,32 @@ def preprocess_image(image_path):
     cv2.imwrite(processed_path, img)
 
     return img, qr_url
+
+
+def tune_brightness_contrast(image):
+    """
+    Tune brightness and contrast of the image.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape
+    center_crop = gray[h//4:3*h//4, w//4:3*w//4]
+    mean_val = np.mean(center_crop)
+    std_val = np.std(center_crop)
+
+    print(f"Center mean: {mean_val:.2f}, std: {std_val:.2f}")
+    alpha = 1.0  # Contrast control (1.0-3.0)
+    beta = 0     # Brightness control (0-100)
+    if mean_val < 100:
+        beta = 40
+    if std_val < 40:
+        alpha = 1.25
+    image = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+    print(f"Applied brightness (beta={beta}) and contrast (alpha={alpha}) adjustment.")
+
+    # Debug
+    cv2.imwrite("receipts/applied_brightness_contrast_visualization.jpg", image)
+
+    return image
 
 
 def deskew_image(image):
