@@ -11,7 +11,7 @@ def ocr_image(image):
     # oem 1 - LSTM engine
     custom_config = r'--oem 1 --psm 6'
 
-    print(pytesseract.get_languages(config=''))
+    # print('Available languages:', pytesseract.get_languages(config=''))
     try:
         text = pytesseract.image_to_string(pil_img, lang='lit', config=custom_config)
     except pytesseract.TesseractError:

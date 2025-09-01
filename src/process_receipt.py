@@ -6,19 +6,16 @@ from stored_data import save_receipt_data, load_receipt_data, load_addresses, ad
 
 
 def multipass_receipt_ocr(image_path, clip_limits=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]):
+    print(f"Multipass OCR for: {image_path}")
     qr_url = None
     results = []
     for clip_limit in clip_limits:
-        print(f"Multipass: CLAHE clipLimit={clip_limit}")
-        # Set CLAHE_CLIP_LIMIT for this pass
-        from preprocessing import preprocess_image
+        print(f"Multipass: CLAHE clipLimit={clip_limit}")  # Debugging line
         img, qr_url = preprocess_image(image_path, clip_limit)
         if img is None:
             continue
-        from ocr import ocr_image
         text = ocr_image(img)
-        print("OCR Text:", text)
-        from parsing import extract_entities
+        # print("OCR Text:", text)  # Debugging line
         entities = extract_entities(text)
         results.append(entities)
     # Aggregate results (example: majority vote for each field)

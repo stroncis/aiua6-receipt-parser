@@ -37,12 +37,12 @@ def preprocess_image(image_path, clip_limit):
     if qr_data and 'kvitas.vmi.lt' in qr_data:
         qr_url = qr_data
         print(f"QR code found: {qr_url}")
-    else:
-        print("No valid QR code found.")
+    # else:
+    #     print("No valid QR code found.")
 
     # --- Deskewing ---
     if APPLY_DESKEW:
-        print("Applying deskewing")
+        # print("Applying deskewing")  # Debugging line
         image = deskew_image(image)
         if image is None:
             print("Warning: Deskewing failed, image is None.")
@@ -60,18 +60,18 @@ def preprocess_image(image_path, clip_limit):
     img = gray
 
     if APPLY_CLAHE:
-        print(f"Applying CLAHE (clipLimit={clip_limit}, tileGridSize={CLAHE_TILE_GRID_SIZE})")
+        # print(f"Applying CLAHE (clipLimit={clip_limit}, tileGridSize={CLAHE_TILE_GRID_SIZE})")  # Debugging line
         clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=CLAHE_TILE_GRID_SIZE)
         img = clahe.apply(img)
     elif APPLY_EQUALIZE:
-        print("Applying histogram equalization")
+        # print("Applying histogram equalization")  # Debugging line
         img = cv2.equalizeHist(img)
 
     if APPLY_MEDIAN_BLUR:
-        print(f"Applying median blur with ksize={MEDIAN_BLUR_KSIZE}")
+        # print(f"Applying median blur with ksize={MEDIAN_BLUR_KSIZE}")  # Debugging line
         img = cv2.medianBlur(img, MEDIAN_BLUR_KSIZE)
 
-    print(f"Applying {PREPROCESS_MODE} thresholding")
+    # print(f"Applying {PREPROCESS_MODE} thresholding")  # Debugging line
     if PREPROCESS_MODE == 'otsu':
         # Otsu ignores the threshold value, always computes its own
         _, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -83,12 +83,12 @@ def preprocess_image(image_path, clip_limit):
         img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 10)
 
     if APPLY_MORPH_OPEN:
-        print(f"Applying morphological opening with kernel size={MORPH_KERNEL_SIZE}")
+        # print(f"Applying morphological opening with kernel size={MORPH_KERNEL_SIZE}")  # Debugging line
         kernel = np.ones((MORPH_KERNEL_SIZE, MORPH_KERNEL_SIZE), np.uint8)
         img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
     if APPLY_DENOISE:
-        print(f"Applying fastNlMeansDenoising with params={FAST_NL_MEANS_PARAMS}")
+        # print(f"Applying fastNlMeansDenoising with params={FAST_NL_MEANS_PARAMS}")  # Debugging line
         img = cv2.fastNlMeansDenoising(img, None, **FAST_NL_MEANS_PARAMS)
 
     # Save preprocessed image for inspection
@@ -97,7 +97,7 @@ def preprocess_image(image_path, clip_limit):
         processed_path = processed_path[0] + '-processed.' + processed_path[1]
     else:
         processed_path = image_path + '-processed'
-    print(f"Saving preprocessed image to: {processed_path}")
+    # print(f"Saving preprocessed image to: {processed_path}")  # Debugging line
     cv2.imwrite(processed_path, img)
 
     return img, qr_url
@@ -113,7 +113,7 @@ def tune_brightness_contrast(image):
     mean_val = np.mean(center_crop)
     std_val = np.std(center_crop)
 
-    print(f"Center mean: {mean_val:.2f}, std: {std_val:.2f}")
+    # print(f"Center mean: {mean_val:.2f}, std: {std_val:.2f}")  # Debugging line
     alpha = 1.0  # Contrast control (1.0-3.0)
     beta = 0     # Brightness control (0-100)
     if mean_val < 100:
@@ -121,7 +121,7 @@ def tune_brightness_contrast(image):
     if std_val < 40:
         alpha = 1.25
     image = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-    print(f"Applied brightness (beta={beta}) and contrast (alpha={alpha}) adjustment.")
+    # print(f"Applied brightness (beta={beta}) and contrast (alpha={alpha}) adjustment.")  # Debugging line
 
     # Debug
     cv2.imwrite("receipts/applied_brightness_contrast_visualization.jpg", image)
@@ -136,7 +136,7 @@ def deskew_image(image):
     # Extracting edges for Hough Line Transform
     edges = cv2.Canny(thresh, 50, 150, apertureSize=3)
     cv2.imwrite("receipts/canny_edges_visualization.jpg", edges)
-    print("Saved Canny edges visualization as canny_edges_visualization.jpg")
+    # print("Saved Canny edges visualization as canny_edges_visualization.jpg")  # Debugging line
 
     # Hough Line Transform
     lines = cv2.HoughLines(edges, 1, np.pi / 180, 250)
@@ -163,11 +163,11 @@ def deskew_image(image):
                 cv2.line(vis, (x1, y1), (x2, y2), (0, 0, 255), 2)
         # Debug: save visualization image
         cv2.imwrite("receipts/hough_lines_visualization.jpg", vis)
-        print("Saved Hough lines visualization as hough_lines_visualization.jpg")
+        # print("Saved Hough lines visualization as hough_lines_visualization.jpg")  # Debugging line
 
         if angles:
             avg_angle = np.mean(angles)
-            print(f"Hough deskew detected angle: {avg_angle:.2f}")
+            # print(f"Hough deskew detected angle: {avg_angle:.2f}")  # Debugging line
             # Rotate by -avg_angle to deskew
             if abs(avg_angle) > 0.5:
                 (h, w) = image.shape[:2]
@@ -187,7 +187,7 @@ def deskew_image(image):
         print("Warning: No nonzero pixels found for deskewing.")
         return None
     angle = cv2.minAreaRect(coords)[-1]
-    print(f"Initial deskew angle: {angle}")
+    # print(f"Initial deskew angle: {angle}")  # Debugging line
 
     if abs(angle) > 45:
         print(f"Deskew skipped: detected angle {angle} is too large (likely vertical receipt or misdetection)")
@@ -196,7 +196,7 @@ def deskew_image(image):
         angle = -(90 + angle)
     else:
         angle = -angle
-    print(f"Corrected deskew angle: {angle}")
+    # print(f"Corrected deskew angle: {angle}")  # Debugging line
 
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
@@ -204,7 +204,7 @@ def deskew_image(image):
     rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
     if rotated is None:
         print("Warning: cv2.warpAffine failed during deskewing.")
-    print(f"Deskew angle: {angle:.2f}")
+    # print(f"Deskew angle: {angle:.2f}")  # Debugging line
     return rotated
 
 
@@ -254,7 +254,7 @@ def perspective_correction(image):
     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
     if warped is None:
         print("Warning: cv2.warpPerspective failed during perspective correction.")
-    print("Perspective correction applied.")
+    # print("Perspective correction applied.")  # Debugging line
     return warped
 
 
