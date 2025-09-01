@@ -89,7 +89,7 @@ if __name__ == "__main__":
         print(f"Usage: python main.py <receipt_image>")
         print(f"Or place images in {RECEIPT_DIR} and run without arguments.")
         for fname in os.listdir(RECEIPT_DIR):
-            if '-processed' in fname:
+            if '-processed' in fname or '_visualization' in fname:
                 continue
             if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp')):
                 process_receipt(os.path.join(RECEIPT_DIR, fname))

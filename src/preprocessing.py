@@ -69,7 +69,6 @@ def preprocess_image(image_path):
         print(f"Applying median blur with ksize={MEDIAN_BLUR_KSIZE}")
         img = cv2.medianBlur(img, MEDIAN_BLUR_KSIZE)
 
-    # Thresholding
     print(f"Applying {PREPROCESS_MODE} thresholding")
     if PREPROCESS_MODE == 'otsu':
         # Otsu ignores the threshold value, always computes its own
@@ -105,12 +104,61 @@ def preprocess_image(image_path):
 def deskew_image(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+    # Extracting edges for Hough Line Transform
+    edges = cv2.Canny(thresh, 50, 150, apertureSize=3)
+    cv2.imwrite("receipts/canny_edges_visualization.jpg", edges)
+    print("Saved Canny edges visualization as canny_edges_visualization.jpg")
+
+    # Hough Line Transform
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 250)
+    angles = []
+    vis = image.copy()
+    if lines is not None:
+        for line in lines:
+            rho, theta = line[0]
+            angle_deg = np.rad2deg(theta)
+            # Only lines near horizontal (within ±30° of 0° or 180°)
+            deviation = min(abs(angle_deg), abs(angle_deg - 180))
+            if deviation < 30:
+                deskew_angle = angle_deg if angle_deg < 90 else angle_deg - 180
+                angles.append(deskew_angle)
+                # Debug: draw the line for visualization
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                x1 = int(x0 + 1000 * (-b))
+                y1 = int(y0 + 1000 * (a))
+                x2 = int(x0 - 1000 * (-b))
+                y2 = int(y0 - 1000 * (a))
+                cv2.line(vis, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        # Debug: save visualization image
+        cv2.imwrite("receipts/hough_lines_visualization.jpg", vis)
+        print("Saved Hough lines visualization as hough_lines_visualization.jpg")
+
+        if angles:
+            avg_angle = np.mean(angles)
+            print(f"Hough deskew detected angle: {avg_angle:.2f}")
+            # Rotate by -avg_angle to deskew
+            if abs(avg_angle) > 0.5:
+                (h, w) = image.shape[:2]
+                center = (w // 2, h // 2)
+                M = cv2.getRotationMatrix2D(center, float(avg_angle), 1.0)
+                rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+                return rotated
+            else:
+                print("Deskew angle too small, skipping rotation.")
+                return image
+        else:
+            print("No suitable lines found for deskewing, fallback to minAreaRect.")
+
+    # Fallback to minAreaRect
     coords = np.column_stack(np.where(thresh > 0))
     if coords.size == 0:
         print("Warning: No nonzero pixels found for deskewing.")
         return None
     angle = cv2.minAreaRect(coords)[-1]
-
     print(f"Initial deskew angle: {angle}")
 
     if abs(angle) > 45:
