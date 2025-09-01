@@ -9,11 +9,7 @@ Reading and extracting structured data from fuel receipts using computer vision 
 4. **Normalization**: Standardize extracted data.
 5. **Saving data**
 
-## Notes
-
-### Preprocessing
-
-Flow:
+### Preprocessing flow
 1. Center weighted brightness and contrast correction
 2. Deskew - orientation fix
 3. Perspective correction
@@ -23,6 +19,32 @@ Flow:
 7. Threshold (binarization, just black and white, no shades)
 8. Morphological opening for smoother edges (less jagged)
 9. Denoise, last cleanup
+
+## Notes
+
+### Example
+
+![source image](<images/source.png>)<br>
+Source image
+
+![processed image](<images/processed.png>)<br>
+Processed image
+
+With a good edge detection, skewing can be done even on a white background.
+
+```json
+{
+  "amount": "20,00",
+  "language": "lt",
+  "time": "13:42:39",
+  "address": "",
+  "station": "Alauša",
+  "date": "2024.11.07"
+}
+```
+Captured data. This receipt is failing due to overlapping text. For example fuel type overlapping the price and amount in liters.
+
+### Preprocessing
 
 This stack looks almost mandatory to get something reasonable with OCR. And there are more tools to be used, like unwrapping, scaling for smaller images and other, less essential, but in some cases important.
 
@@ -55,6 +77,7 @@ For making it to a locally running mobile ap model, it will require serious data
 
 ## Challenges
 * To capture address is insanely hard. My solution is to use fuzzy string searching (Levenstein etc) in lookup tables. If it is entered once into database and approved, then all the incorrect OCR readings could be easily fixed with a lookup table for that data cathegory. Though this requires a lot of considerations, as addresses are too mangled to be usable. A small language model could help here?
+* Receipts have a lot of overlapping text (space saving?), on which Tesseract fails instantly.
 * Creating IDs for receipts based on filename is not the best idea, but should work for now, later should check for date, time, pay amount?
 * So far so good for smaller chunks of text, though there are issues with reading some characters, especially "3" "8" and "9" being confused a lot.
 * Having thousands of labeled receipts could help with Tesseract finetuning, though this is a major task, not for a hobby project. Outsourcing neighboor kiddos for candies.
