@@ -8,7 +8,7 @@ PREPROCESS_MODE = 'otsu'  # Options: 'otsu', 'mean', 'gaussian', 'manual'
 MANUAL_THRESHOLD_VALUE = 210  # Used only if PREPROCESS_MODE == 'manual'
 APPLY_EQUALIZE = False
 APPLY_CLAHE = True
-CLAHE_CLIP_LIMIT = 4.0
+CLAHE_CLIP_LIMIT = 3.5
 CLAHE_TILE_GRID_SIZE = (16, 16)
 APPLY_DESKEW = True
 APPLY_PERSPECTIVE_CORRECTION = True
@@ -20,14 +20,14 @@ APPLY_DENOISE = True
 FAST_NL_MEANS_PARAMS = dict(h=30, templateWindowSize=7, searchWindowSize=21)
 
 
-def preprocess_image(image_path):
+def preprocess_image(image_path, clip_limit):
     """
     Load and preprocess the image for OCR.
     """
     image = cv2.imread(image_path)
     if image is None:
         raise ValueError(f"Image not found or unable to read: {image_path}")
-    
+
     image = tune_brightness_contrast(image)
 
     # --- QR code detection (OpenCV) ---
@@ -60,8 +60,8 @@ def preprocess_image(image_path):
     img = gray
 
     if APPLY_CLAHE:
-        print(f"Applying CLAHE (clipLimit={CLAHE_CLIP_LIMIT}, tileGridSize={CLAHE_TILE_GRID_SIZE})")
-        clahe = cv2.createCLAHE(clipLimit=CLAHE_CLIP_LIMIT, tileGridSize=CLAHE_TILE_GRID_SIZE)
+        print(f"Applying CLAHE (clipLimit={clip_limit}, tileGridSize={CLAHE_TILE_GRID_SIZE})")
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=CLAHE_TILE_GRID_SIZE)
         img = clahe.apply(img)
     elif APPLY_EQUALIZE:
         print("Applying histogram equalization")

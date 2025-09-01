@@ -1,7 +1,6 @@
 from preprocessing import preprocess_image
 from ocr import ocr_image
 from parsing import extract_entities
-from normalization import normalize_entities
 import sys
 import os
 import requests
@@ -62,26 +61,50 @@ def extract_vmi_content(qr_url):
     return sum_match, address_match
 
 
+def multipass_receipt_ocr(image_path, clip_limits=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]):
+    qr_url = None
+    results = []
+    for clip_limit in clip_limits:
+        print(f"Multipass: CLAHE clipLimit={clip_limit}")
+        # Set CLAHE_CLIP_LIMIT for this pass
+        from preprocessing import preprocess_image
+        img, qr_url = preprocess_image(image_path, clip_limit)
+        if img is None:
+            continue
+        from ocr import ocr_image
+        text = ocr_image(img)
+        print("OCR Text:", text)
+        from parsing import extract_entities
+        entities = extract_entities(text)
+        results.append(entities)
+    # Aggregate results (example: majority vote for each field)
+    aggregated = {}
+    keys = set().union(*(r.keys() for r in results if r))
+    for key in keys:
+        values = [r[key] for r in results if r and key in r]
+        if values:
+            # Majority vote
+            aggregated[key] = max(set(values), key=values.count)
+    print("Aggregated entities:", aggregated)
+    return aggregated, qr_url
+
+
 def process_receipt(image_path):
     print(f"Processing: {image_path}")
-    preprocessed, qr_url = preprocess_image(image_path)
-    if preprocessed is None:
-        print("Preprocessing failed, skipping OCR.")
-        return None
-    text = ocr_image(preprocessed)
-    print("OCR Text:", text)
-    entities = extract_entities(text)
-    normalized = normalize_entities(entities)
-    print("Extracted Data:", normalized)
-
+    fname = os.path.basename(image_path)
+    # Use multipass CLAHE for robust OCR
+    aggregated, qr_url = multipass_receipt_ocr(image_path)
+    print(f"Processed {fname}:")
+    for key, value in aggregated.items():
+        print(f"    {key}: {value}")
+    print(f"    QR URL: {qr_url}")
     # if qr_url:
     #     sum_match, address_match = extract_vmi_content(qr_url)
     #     if sum_match:
     #         print(f"Extracted sum: {sum_match.group(1)}")
     #     if address_match:
     #         print(f"Extracted address: {address_match.group(1).strip()}")
-
-    return normalized
+    return aggregated, qr_url
 
 
 if __name__ == "__main__":
