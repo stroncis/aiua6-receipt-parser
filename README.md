@@ -1,16 +1,31 @@
 # Fuel Receipt Reader
 
-A Python project for reading and extracting structured data from fuel receipts using computer vision and OCR. Goal is to automate tracking of fuel expenses.
+Reading and extracting structured data from fuel receipts using computer vision and OCR. Goal is to automate tracking of fuel expenses.
 
-## Flow
+## Stages
 1. **Preprocessing**: Enhance image quality for OCR.
 2. **OCR**: Extract text using Tesseract.
 3. **Parsing**: Extract entities (date, amount, fuel type, etc.).
 4. **Normalization**: Standardize extracted data.
+5. **Saving data**
 
 ## Notes
 
 ### Preprocessing
+
+Flow:
+1. Center weighted brightness and contrast correction
+2. Deskew - orientation fix
+3. Perspective correction
+4. Conversion to grayscale
+5. Histogram equalization (regional with fallback to global)
+6. Median blur (removes harsh noise)
+7. Threshold (binarization, just black and white, no shades)
+8. Morphological opening for smoother edges (less jagged)
+9. Denoise, last cleanup
+
+This stack looks almost mandatory to get something reasonable with OCR. And there are more tools to be used, like unwrapping, scaling for smaller images and other, less essential, but in some cases important.
+
 All receipt pictures have a barely or not at all perceivable to the naked eye gradient. That gradient is sometimes hard to cope even in Photoshop to make a clear text mask. Making it fully automated is a challenge of a next level. CLAHE (Contrast Limited AHE (Adaptive Histogram Equalization)) solves this by splitting an image to the grid and applying AHE for each part separatedly. This way darker corner on one side will be treated differently, than another (if there still is enough data, f.e. pixel values are not clipped).
 
 There is constant inconsistency in light and contrast, to fight or at least compensate that, I use the central part of ant image to measure conditions. This is based on assumption, that receipt is positioned in te center of the screen.
