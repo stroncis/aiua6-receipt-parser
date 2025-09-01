@@ -28,13 +28,23 @@ def preprocess_image(image_path):
     if image is None:
         raise ValueError(f"Image not found or unable to read: {image_path}")
 
+    # --- QR code detection (OpenCV) ---
+    qr_url = None
+    qr_detector = cv2.QRCodeDetector()
+    qr_data, points, _ = qr_detector.detectAndDecode(image)
+    if qr_data and 'kvitas.vmi.lt' in qr_data:
+        qr_url = qr_data
+        print(f"QR code found: {qr_url}")
+    else:
+        print("No valid QR code found.")
+
     # --- Deskewing ---
     if APPLY_DESKEW:
         print("Applying deskewing")
         image = deskew_image(image)
         if image is None:
             print("Warning: Deskewing failed, image is None.")
-            return None
+            return None, qr_url
 
     # --- Perspective Correction ---
     if APPLY_PERSPECTIVE_CORRECTION:
@@ -89,7 +99,7 @@ def preprocess_image(image_path):
     print(f"Saving preprocessed image to: {processed_path}")
     cv2.imwrite(processed_path, img)
 
-    return img
+    return img, qr_url
 
 
 def deskew_image(image):
@@ -102,6 +112,7 @@ def deskew_image(image):
     angle = cv2.minAreaRect(coords)[-1]
 
     print(f"Initial deskew angle: {angle}")
+
     if abs(angle) > 45:
         print(f"Deskew skipped: detected angle {angle} is too large (likely vertical receipt or misdetection)")
         return image
