@@ -13,6 +13,17 @@ def extract_entities(text):
         entities['fuel_price_per_liter'] = fuel_amount_match.group(1)
         entities['fuel_liters'] = fuel_amount_match.group(2)
 
+    # Station extraction: UAB "Station name", Station name, UAB, Station name,UAB, UAB Station name
+    station_match = re.search(r'UAB\s*["“]?([\w\s\-]+)["”]?', text)
+    if not station_match:
+        station_match = re.search(r'([\w\s\-]+),\s*UAB', text)
+    if not station_match:
+        station_match = re.search(r'([\w\s\-]+),UAB', text)
+    if not station_match:
+        station_match = re.search(r'UAB\s+([\w\s\-]+)', text)
+    if station_match:
+        entities['station'] = station_match.group(1).strip()
+
     # Address extraction (look for lines with 'g.', 'sav.', 'k.', etc.)
     # Join lines around address keywords
     address_lines = []
@@ -55,7 +66,7 @@ def extract_entities(text):
         entities['fuel_type'] = fuel_match.group(1)
 
     # Simple Lithuanian keyword detection
-    lt_keywords = ['Mokėti', 'Kortelės', 'Kvito', 'Saugos', 'Dokumento', 'PVM']
+    lt_keywords = ['Mokėti', 'Kortelės', 'Kvito', 'Saugos', 'Dokumento', 'PVM', 'UAB']
     entities['language'] = 'lt' if any(word.lower() in text.lower() for word in lt_keywords) else 'unknown'
 
     return entities
