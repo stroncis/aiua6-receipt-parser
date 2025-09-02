@@ -183,3 +183,4 @@ cython_debug/
 /receipts_ignore
 /receipts
 /data
+.github/copilot-instructions.md
